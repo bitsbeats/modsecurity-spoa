@@ -1,8 +1,8 @@
-FROM alpine:3.12
+FROM alpine:3.13
 
-ARG HAPROXY_MAJOR=2.2
-ARG HAPROXY_VERSION=2.2.4
-ARG HAPROXY_MD5=c2717fcff503ef8574cd6395e2ca4d24
+ARG HAPROXY_MAJOR=2.3
+ARG HAPROXY_VERSION=2.3.10
+ARG HAPROXY_MD5=dc8b635860312edaa478e4675150db15
 ARG MODSEC_VERSION=2.9.3
 ARG MODSEC_MD5=215a96d679a5b0fadcf13b5d09b35422
 
@@ -19,9 +19,11 @@ RUN apk add --no-cache --virtual .build-modsecurity \
         libxml2-dev \
         libevent-dev \
         curl-dev \
-        yajl-dev\
+        yajl-dev \
+        unzip \
     && curl -fsSLo /tmp/modsecurity.tar.gz https://www.modsecurity.org/tarball/${MODSEC_VERSION}/modsecurity-${MODSEC_VERSION}.tar.gz \
     && curl -fsSLo /tmp/haproxy.tar.gz https://www.haproxy.org/download/${HAPROXY_MAJOR}/src/haproxy-${HAPROXY_VERSION}.tar.gz \
+    && curl -fsSLo /tmp/spoa-modsecurity-master.zip https://github.com/haproxy/spoa-modsecurity/archive/refs/heads/master.zip \
     && echo "$MODSEC_MD5  /tmp/modsecurity.tar.gz" | md5sum -c \
     && mkdir -p /usr/src/modsecurity \
     && tar xzf /tmp/modsecurity.tar.gz --strip-components=1 -C /usr/src/modsecurity \
@@ -30,6 +32,7 @@ RUN apk add --no-cache --virtual .build-modsecurity \
     && mkdir -p /usr/src/haproxy \
     && tar xzf /tmp/haproxy.tar.gz -C /usr/src/haproxy --strip-components=1 \
     && rm /tmp/haproxy.tar.gz \
+    && unzip /tmp/spoa-modsecurity-master.zip -d /usr/src/ \
     && cd /usr/src/modsecurity \
     && ./configure \
         --prefix=/usr/src/modsecurity/INSTALL \
@@ -42,12 +45,12 @@ RUN apk add --no-cache --virtual .build-modsecurity \
     && mkdir -p INSTALL/include \
     && cp standalone/*.h apache2/*.h INSTALL/include \
     && cd / \
-    && make -C /usr/src/haproxy/contrib/modsecurity \
+    && make -C /usr/src/spoa-modsecurity-master \
         MODSEC_INC=/usr/src/modsecurity/INSTALL/include \
         MODSEC_LIB=/usr/src/modsecurity/INSTALL/lib \
         APACHE2_INC=/usr/include/apache2 \
         APR_INC=/usr/include/apr-1 \
-    && mv /usr/src/haproxy/contrib/modsecurity/modsecurity /usr/local/bin/ \
+    && mv /usr/src/spoa-modsecurity-master/modsecurity /usr/local/bin/ \
     && rm -rf /usr/src/haproxy /usr/src/modsecurity \
     && deps=$( \
         scanelf --needed --nobanner --format '%n#p' /usr/local/bin/modsecurity \
